@@ -1,94 +1,56 @@
-interface GetProductsParams {
-	offset: number;
-	limit: number;
-}
+import Container from '@/app/shared/Container';
+import Card from '@/app/shared/Card';
+import FilterPanel from '@/app/shared/FilterPanel';
+import PrevPage from '@/app/shared/PrevPage';
+import NextPage from '@/app/shared/NextPage';
+import { getBrands, getProducts } from '@/api/products';
 
-const getProducts = async (params: GetProductsParams) => {
-	const { offset, limit } = params;
-
-	const response = await fetch('https://api.valantis.store:41000/', {
-		method: 'POST',
-		headers: {
-			'X-Auth': '5c8431a5765a73a9394ab0169a2a96b6',
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			action: 'get_ids',
-			params: { offset, limit }
-		})
-	});
-
-	if (!response.ok) {
-		throw new Error(response.statusText);
-	}
-
-	const { result: ids } = await response.json();
-	// todo: remove duplicates
-
-	{
-		const response = await fetch('https://api.valantis.store:41000/', {
-			method: 'POST',
-			headers: {
-				'X-Auth': '5c8431a5765a73a9394ab0169a2a96b6',
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				action: 'get_items',
-				params: { ids }
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error(response.statusText);
-		}
-
-		const { result: products } = await response.json();
-
-		return products;
-	}
+const objectToQuery = (obj: Record<string, string | number>) => {
+	return Object.entries(obj)
+		.map(([key, value]) => `${key}=${value}`)
+		.join('&');
 };
 
+const Home = async ({ searchParams }: { searchParams: Record<string, string> }) => {
+	const page = searchParams.page ? Number(searchParams.page) : 1;
+	const { brand, product, price } = searchParams;
 
-const Home = async () => {
+	const queryPrev = '?' + objectToQuery({ page: page - 1 });
+	const queryNext = '?' + objectToQuery({ page: page + 1 });
+
 	const products = await getProducts({
-		offset: 0,
-		limit: 50,
+		page,
+		brand,
+		price,
+		product,
 	});
 
-	console.log(products);
-
+	const brands = await getBrands();
 
 	return (
-		<main>
-			<h1>Product List</h1>
-			{products.map((product: any) => (
-				<>
-					<table key={product.id}>
-						<tbody>
-						<tr>
-							<th>Id</th>
-							<td>{product.id}</td>
-						</tr>
-						<tr>
-							<th>Name</th>
-							<td>{product.product}</td>
-						</tr>
-						<tr>
-							<th>Brand</th>
-							<td>{product.brand}</td>
-						</tr>
-						<tr>
-							<th>Price</th>
-							<td>{product.price}</td>
-						</tr>
-						</tbody>
-					</table>
-					<br/>
-					<br/>
-				</>
-			))}
-
-		</main>
+		<Container>
+			<FilterPanel
+				price={price}
+				product={product}
+				brand={brand}
+				brands={brands}
+			/>
+			<nav className={'flex'}>
+				<div className={'w-10 h-10'}>{page > 1 && (<PrevPage src={queryPrev}/>)}</div>
+				<div className={'w-10 h-10'}><NextPage src={queryNext}/></div>
+			</nav>
+			<div className={'mt-10'}/>
+			<div className={'space-y-4'}>
+				{products.map((product: any) => (
+					<Card id={product.id}
+					      key={product.id}
+					      product={product.product}
+					      brand={product.brand}
+					      price={product.price}
+					/>
+				))}
+			</div>
+		</Container>
 	);
 };
 
